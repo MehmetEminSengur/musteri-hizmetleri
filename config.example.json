@@ -1,0 +1,27 @@
+{
+  "mode": "approval",
+  "store": {
+    "platform": "shopify",
+    "domain": "magazam.myshopify.com",
+    "auth": "cli",
+    "publicUrl": "https://www.magazam.com",
+    "brandName": "Mağaza Adı",
+    "apiVersion": "2026-07"
+  },
+  "engines": {
+    "text": "codex"
+  },
+  "channels": {
+    "whatsapp": true,
+    "instagram": true,
+    "messenger": true
+  },
+  "server": {
+    "panelPort": 8787,
+    "webhookPort": 8788,
+    "publicUrl": ""
+  },
+  "limits": {
+    "maxPackagesPerOrder": 50
+  }
+}

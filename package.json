@@ -1,0 +1,20 @@
+{
+  "name": "musteri-hizmetleri",
+  "version": "0.1.0",
+  "description": "WhatsApp, Instagram ve Facebook mesajlarına mağaza bilgisiyle cevap taslağı yazan, kendi bilgisayarınızda çalışan yapay zekâ müşteri hizmetleri.",
+  "type": "module",
+  "bin": {
+    "musteri": "bin/musteri.mjs"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "test": "node --test --test-concurrency=1 test/",
+    "start": "node bin/musteri.mjs calistir"
+  },
+  "license": "MIT",
+  "author": "Mehmet Emin Şengür",
+  "keywords": ["musteri-hizmetleri", "whatsapp", "instagram", "messenger", "shopify", "yapay-zeka", "codex", "claude-code"],
+  "private": false
+}
