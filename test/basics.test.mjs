@@ -26,6 +26,14 @@ test('paket içeriği açıklamadan okunur', () => {
   assert.equal(parsePaketIcerigi('yok'), null);
 });
 
+test('paket içeriği HTML listesinden tek satır olarak okunur; yoksa ürün adından', () => {
+  const html = '<ul>\n<li>Desen: Çizgili</li>\n<li>Paket içeriği: 100 adet kutu</li>\n<li>Dayanıklı yapı</li></ul><p>Kullanım Alanları ...</p>';
+  assert.equal(parsePaketIcerigi(html), '100 adet kutu');
+  assert.equal(parsePaketIcerigi('<p>Açıklama</p>', 'Islak Mendil 6 x 12 - 1000 Adet Koli'), '1000 Adet Koli (ürün adından)');
+  assert.equal(parsePaketIcerigi('', "Çöp Torbası 65x80 - 10'lu Paket"), "10'lu Paket (ürün adından)");
+  assert.equal(parsePaketIcerigi('', 'Sülfit Paketleme Kağıdı - 30x40 10Kg Paket'), null);
+});
+
 test('telefon numarası tek biçime getirilir', () => {
   for (const p of ['0555 111 22 33', '+90 555 111 22 33', '5551112233']) assert.equal(normalizePhone(p), '905551112233');
 });

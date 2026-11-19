@@ -67,14 +67,15 @@ export function linkVerifiedContact(db, conv, { phone, email }) {
   }
 }
 
-export async function commerceCustomerId(db, commerce, customerId) {
+// Müşterinin mağazadaki siparişleri (telefon/e-postasıyla eşleşen). İlk eşleşmede mağazadaki
+// müşteri kimliği de kaydedilir (ödeme linki o müşteriye bağlansın diye).
+export async function customerOrders(db, commerce, customerId, limit = 5) {
   const c = db.prepare('SELECT * FROM customers WHERE id = ?').get(customerId);
-  if (c.commerce_id) return c.commerce_id;
-  if (!c.phone && !c.email) return null;
-  const rec = await commerce.findCustomer({ phone: c.phone, email: c.email });
-  if (!rec) return null;
-  db.prepare('UPDATE customers SET commerce_id = ?, name = COALESCE(name, ?) WHERE id = ?').run(rec.id, rec.name, customerId);
-  return rec.id;
+  if (!c.phone && !c.email) return [];
+  const orders = await commerce.ordersByContact({ phone: c.phone, email: c.email }, limit);
+  const cid = orders.find((o) => o.customerId)?.customerId;
+  if (cid && !c.commerce_id) db.prepare('UPDATE customers SET commerce_id = ? WHERE id = ?').run(cid, customerId);
+  return orders;
 }
 
 const day = (iso) => (iso ? `${iso.slice(8, 10)}.${iso.slice(5, 7)}.${iso.slice(0, 4)}` : '');
@@ -99,8 +100,7 @@ export async function buildProfile(db, commerce, conv) {
   if (verified) {
     let orders = null;
     try {
-      const cid = await commerceCustomerId(db, commerce, customer.id);
-      orders = cid ? await commerce.customerOrders(cid, 3) : [];
+      orders = await customerOrders(db, commerce, customer.id, 3);
     } catch { /* mağazaya ulaşılamazsa profil siparişsiz verilir; ajan gerekirse aracı kendisi dener */ }
     if (orders?.length) {
       lines.push('- Son siparişleri:', ...orders.map((o) => `  - ${o.number} (${day(o.createdAt)}): ${o.items.join(', ')} — ${o.fulfillmentStatus || 'durum bilinmiyor'}`));

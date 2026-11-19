@@ -1,7 +1,7 @@
 // Yapay zekânın araçları. Model hiçbir zaman müşteri kimliği, hesap veya alıcı seçmez: bunlar
 // konuşmadan gelir. Model yalnız ürün sorgusu, varyant ve adet seçer; her şey burada doğrulanır.
 import { formatTl, normalizePhone } from '../money.mjs';
-import { addNote, commerceCustomerId, isVerified, linkVerifiedContact } from '../customers.mjs';
+import { addNote, customerOrders, isVerified, linkVerifiedContact } from '../customers.mjs';
 
 export const PAYMENT_LINK_PLACEHOLDER = '{ODEME_LINKI}';
 export const HANDOFF_CATEGORIES = ['toptan', 'sikayet_iade', 'ozel_fiyat', 'kapida_odeme', 'emin_degilim', 'diger'];
@@ -73,10 +73,8 @@ export function createExecutor({ db, commerce, conv, state, maxPackages = 50 }) 
     },
     async musteri_siparisleri() {
       if (!isVerified(db, conv)) return dump({ sonuc: 'müşterinin kimliği bu kanalda doğrulanmadı; sipariş numarası ve telefon/e-posta isteyip siparis_sorgula kullan' });
-      const cid = await commerceCustomerId(db, commerce, conv.customer_id);
-      if (!cid) return dump({ sonuc: 'bu numarayla kayıtlı müşteri bulunamadı' });
-      const orders = await commerce.customerOrders(cid, 5);
-      return orders.length ? dump(orders.map(orderView)) : dump({ sonuc: 'müşterinin siparişi yok' });
+      const orders = await customerOrders(db, commerce, conv.customer_id, 5);
+      return orders.length ? dump(orders.map(orderView)) : dump({ sonuc: 'bu numaraya/e-postaya ait sipariş bulunamadı; müşteri farklı numarayla sipariş verdiyse sipariş numarasını isteyip siparis_sorgula kullan' });
     },
     async siparis_sorgula({ siparis_no, telefon_veya_eposta }) {
       const order = await commerce.orderByNumber(String(siparis_no));
@@ -85,11 +83,14 @@ export function createExecutor({ db, commerce, conv, state, maxPackages = 50 }) 
       const candidates = new Set([given].filter(Boolean));
       const customer = db.prepare('SELECT phone FROM customers WHERE id = ?').get(conv.customer_id);
       if (isVerified(db, conv) && customer?.phone) candidates.add(customer.phone);
-      const matches = order && [order.phone, order.email].some((x) => x && candidates.has(x));
+      const contacts = order ? [...order.phones, order.email].filter(Boolean) : [];
+      const matches = contacts.some((x) => candidates.has(x));
       // Sipariş yok ile bilgi eşleşmiyor aynı cevabı alır: başkasının siparişinin varlığı bile sızmaz.
       if (!matches) return dump({ sonuc: 'bu sipariş numarası ve iletişim bilgisiyle eşleşen sipariş bulunamadı' });
-      if (given && [order.phone, order.email].includes(given) && !isVerified(db, conv)) {
-        linkVerifiedContact(db, conv, { phone: order.phone, email: order.email });
+      if (given && contacts.includes(given) && !isVerified(db, conv)) {
+        // Müşteri kendini doğruladı: bu kanaldaki kimliği verdiği telefon/e-postanın sahibi müşteriyle birleştir.
+        linkVerifiedContact(db, conv, given.includes('@') ? { email: given } : { phone: given });
+        if (order.customerId) db.prepare('UPDATE customers SET commerce_id = COALESCE(commerce_id, ?) WHERE id = ?').run(order.customerId, conv.customer_id);
       }
       return dump(orderView(order));
     },

@@ -59,6 +59,19 @@ test('Shopify: fiyat kuruşa, link site adresine, taslak sipariş hatası iletil
   assert.equal(await c.orderByNumber('1042; DROP'), null); // sorgu enjeksiyonu yok
 });
 
+test('Shopify: sipariş telefonu teslimat/fatura adresinden toplanır, telefonla eşleşen siparişler bulunur', async () => {
+  const node = (name, phone) => ({ name, createdAt: `2026-11-1${name.slice(-1)}T00:00:00Z`, displayFinancialStatus: 'PAID', displayFulfillmentStatus: 'FULFILLED', phone: null, email: 'a@b.com',
+    customer: { id: 'gid://shopify/Customer/77', phone: null }, shippingAddress: { phone }, billingAddress: { phone: null },
+    totalPriceSet: { shopMoney: { amount: '283.80', currencyCode: 'TRY' } }, lineItems: { nodes: [{ title: 'Kase', quantity: 2 }] }, fulfillments: [] });
+  const gql = async () => ({ orders: { nodes: [node('#1105', '+90 555 111 22 33'), node('#1104', '0532 000 00 00')] } });
+  const c = createShopifyCommerce(makeConfig(), openDb(':memory:'), { gql });
+  const orders = await c.ordersByContact({ phone: '905551112233' });
+  assert.deepEqual(orders.map((o) => o.number), ['#1105']);
+  assert.deepEqual(orders[0].phones, ['905551112233']);
+  assert.equal(orders[0].customerId, '77');
+  assert.equal(orders[0].totalKurus, 28380);
+});
+
 test('kurulum skill dosyası Codex/Antigravity ve Claude Code için aynı', () => {
   const a = readFileSync('.agents/skills/musteri-hizmetleri-kurulum/SKILL.md', 'utf8');
   const b = readFileSync('.claude/skills/musteri-hizmetleri-kurulum/SKILL.md', 'utf8');

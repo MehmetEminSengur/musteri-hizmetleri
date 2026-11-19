@@ -21,12 +21,19 @@ export function formatTl(kurus) {
   return `${sign}${whole},${String(abs % 100).padStart(2, '0')} TL`;
 }
 
-// "Paket içeriği: 50 adet kase + 50 adet kapak" satırını ürün açıklamasından bulur.
-export function parsePaketIcerigi(text) {
-  if (!text) return null;
-  const plain = String(text).replace(/<[^>]+>/g, '\n');
-  const m = plain.match(/paket\s+i[çc]eri[gğ]i\s*[:：]\s*([^\n]+)/i);
-  return m ? m[1].trim().replace(/\.+$/, '').trim() || null : null;
+// Paket içeriği: önce açıklamadaki "Paket içeriği: 50 adet kase + 50 adet kapak" satırı (HTML'deki
+// <li>, <p>, <br> satır sayılır), yoksa ürün adındaki "100'lü Paket", "1000 Adet Koli" gibi ifade.
+const BLOCK_END = /<\/(?:p|li|div|h[1-6]|tr|td|ul|ol)>|<br\s*\/?>/gi;
+
+export function parsePaketIcerigi(html, title = '') {
+  if (html) {
+    const text = String(html).replace(BLOCK_END, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
+    const m = text.match(/paket\s+i[çc]eri[gğ]i\s*[:：]\s*([^\n]+)/i);
+    const line = m && m[1].trim().replace(/\.+$/, '').trim();
+    if (line) return line.slice(0, 200);
+  }
+  const t = String(title).match(/\d[\d.]*\s*(?:['’]?\s*(?:li|lı|lu|lü))?\s*(?:adet|paket|koli|rulo|kutu)(?:\s+(?:koli|paket|kutu))?/i);
+  return t ? `${t[0].trim()} (ürün adından)` : null;
 }
 
 // Türkiye numaralarını 905xxxxxxxxx biçimine getirir; diğerlerinde yalnız rakamları bırakır.

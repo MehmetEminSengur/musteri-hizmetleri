@@ -8,7 +8,7 @@ export function sampleCommerce(publicUrl = 'https://ornek-magaza.com') {
     async getProduct(id) { return id === product.id ? product : null; },
     async getVariant(id) { return id === variant.id ? variant : null; },
     async findCustomer() { return null; },
-    async customerOrders() { return []; },
+    async ordersByContact() { return []; },
     async orderByNumber() { return null; },
     cartLink(items) { return `${publicUrl}/cart/${items.map((i) => `${i.variantId}:${i.quantity}`).join(',')}`; },
     async createPaymentLink() { return `${publicUrl}/invoices/ornek`; },

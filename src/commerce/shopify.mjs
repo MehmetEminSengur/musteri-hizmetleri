@@ -109,9 +109,11 @@ function transport(config, db, { fetchImpl = fetch, run = runCli } = {}) {
   };
 }
 
+const RECENT_ORDERS = 250;
 const VARIANT = 'id title sku price inventoryQuantity availableForSale';
-const PRODUCT = `id title handle onlineStoreUrl description status variants(first: 30) { nodes { ${VARIANT} } }`;
+const PRODUCT = `id title handle onlineStoreUrl description descriptionHtml status variants(first: 30) { nodes { ${VARIANT} } }`;
 const ORDER = `name createdAt displayFinancialStatus displayFulfillmentStatus phone email
+  customer { id phone } shippingAddress { phone } billingAddress { phone }
   totalPriceSet { shopMoney { amount currencyCode } }
   lineItems(first: 20) { nodes { title quantity } }
   fulfillments(first: 5) { trackingInfo(first: 3) { company number url } }`;
@@ -119,7 +121,8 @@ const ORDER = `name createdAt displayFinancialStatus displayFulfillmentStatus ph
 // Ortak biçimler (diğer altyapılar da aynısını döndürmeli):
 //   Variant { id, title, sku, priceKurus, available, stock }
 //   Product { id, title, url, paketIcerigi, description, variants }
-//   Order   { number, createdAt, financialStatus, fulfillmentStatus, totalKurus, items[], shipments[], phone, email }
+//   Order   { number, createdAt, financialStatus, fulfillmentStatus, totalKurus, items[], shipments[], phones[], email, customerId }
+// Siparişteki telefon çoğu mağazada siparişin kendisinde değil teslimat/fatura adresindedir; hepsi toplanır.
 export function createShopifyCommerce(config, db, opts = {}) {
   const gql = opts.gql || transport(config, db, opts);
   const publicBase = config.store.publicUrl;
@@ -128,7 +131,7 @@ export function createShopifyCommerce(config, db, opts = {}) {
   const product = (n) => ({
     id: numeric(n.id), title: n.title,
     url: n.onlineStoreUrl || `${publicBase}/products/${n.handle}`,
-    paketIcerigi: parsePaketIcerigi(n.description),
+    paketIcerigi: parsePaketIcerigi(n.descriptionHtml || n.description, n.title),
     description: n.description || '',
     variants: n.variants.nodes.map(variant),
   });
@@ -138,7 +141,9 @@ export function createShopifyCommerce(config, db, opts = {}) {
     totalKurus: toKurus(String(n.totalPriceSet.shopMoney.amount)),
     items: n.lineItems.nodes.map((li) => `${li.quantity} x ${li.title}`),
     shipments: (n.fulfillments || []).flatMap((f) => (f.trackingInfo || []).map((t) => ({ company: t.company || null, number: t.number || null, url: t.url || null }))),
-    phone: normalizePhone(n.phone), email: n.email ? n.email.toLowerCase() : null,
+    phones: [...new Set([n.phone, n.shippingAddress?.phone, n.billingAddress?.phone, n.customer?.phone].map(normalizePhone).filter(Boolean))],
+    email: n.email ? n.email.toLowerCase() : null,
+    customerId: n.customer?.id ? numeric(n.customer.id) : null,
   });
 
   return {
@@ -163,10 +168,20 @@ export function createShopifyCommerce(config, db, opts = {}) {
       const n = d.customers.nodes[0];
       return n ? { id: numeric(n.id), name: n.displayName || null, email: n.email || null, phone: n.phone || null } : null;
     },
-    async customerOrders(customerId, limit = 5) {
-      const d = await gql(`query($q: String!, $n: Int!) { orders(first: $n, query: $q, sortKey: CREATED_AT, reverse: true) { nodes { ${ORDER} } } }`,
-        { q: `customer_id:${numeric(customerId)}`, n: limit });
-      return d.orders.nodes.map(order);
+    // Telefon/e-postayla eşleşen siparişler (yeniden eskiye). Telefon adreslerde durduğu için son
+    // RECENT_ORDERS sipariş içinde aranır; e-posta Shopify aramasıyla bulunur.
+    async ordersByContact({ phone, email }, limit = 5) {
+      const found = new Map();
+      if (email) {
+        const d = await gql(`query($q: String!) { orders(first: 20, query: $q, sortKey: CREATED_AT, reverse: true) { nodes { ${ORDER} } } }`, { q: `email:${email}` });
+        for (const n of d.orders.nodes) found.set(n.name, order(n));
+      }
+      const p = normalizePhone(phone);
+      if (p) {
+        const d = await gql(`query($n: Int!) { orders(first: $n, sortKey: CREATED_AT, reverse: true) { nodes { ${ORDER} } } }`, { n: RECENT_ORDERS });
+        for (const n of d.orders.nodes) { const o = order(n); if (o.phones.includes(p)) found.set(o.number, o); }
+      }
+      return [...found.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, limit);
     },
     async orderByNumber(number) {
       const name = String(number).trim().replace(/^#/, '');

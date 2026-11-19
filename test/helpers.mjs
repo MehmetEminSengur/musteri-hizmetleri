@@ -24,14 +24,14 @@ export function fakeCommerce() {
     1002: { id: '1002', title: '1000 ml', sku: 'K1000', priceKurus: 19900, available: false, stock: 0 },
   };
   const product = { id: '10', title: 'Sızdırmaz Kase', url: 'https://ornek-magaza.com/products/kase', paketIcerigi: '50 adet kase + 50 adet kapak', description: 'Paket içeriği: 50 adet kase + 50 adet kapak', variants: Object.values(variants) };
-  const orders = { 1042: { number: '#1042', createdAt: '2026-11-10T10:00:00Z', financialStatus: 'PAID', fulfillmentStatus: 'FULFILLED', totalKurus: 28380, items: ['2 x Sızdırmaz Kase'], shipments: [{ company: 'Yurtiçi', number: 'ABC123', url: null }], phone: '905551112233', email: 'a@b.com' } };
+  const orders = { 1042: { number: '#1042', createdAt: '2026-11-10T10:00:00Z', financialStatus: 'PAID', fulfillmentStatus: 'FULFILLED', totalKurus: 28380, items: ['2 x Sızdırmaz Kase'], shipments: [{ company: 'Yurtiçi', number: 'ABC123', url: null }], phones: ['905551112233'], email: 'a@b.com', customerId: '77' } };
   return {
     name: 'fake', paymentLinks: [], searches: [],
     async searchProducts(q) { this.searches.push(q); return [product]; },
     async getProduct(id) { return id === '10' ? product : null; },
     async getVariant(id) { return variants[id] || null; },
     async findCustomer({ phone }) { return phone === '905551112233' ? { id: '77', name: 'Ayşe', email: 'a@b.com', phone: '+905551112233' } : null; },
-    async customerOrders(id) { return id === '77' ? Object.values(orders) : []; },
+    async ordersByContact({ phone, email }) { return Object.values(orders).filter((o) => o.phones.includes(phone) || (email && o.email === email)); },
     async orderByNumber(n) { return orders[String(n).replace('#', '')] || null; },
     cartLink(items) { return 'https://ornek-magaza.com/cart/' + items.map((i) => `${i.variantId}:${i.quantity}`).join(','); },
     async createPaymentLink(items, customerId) { this.paymentLinks.push({ items, customerId }); return `https://ornek-magaza.com/invoices/${this.paymentLinks.length}`; },
