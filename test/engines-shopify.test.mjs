@@ -78,3 +78,19 @@ test('kurulum skill dosyası Codex/Antigravity ve Claude Code için aynı', () =
   assert.equal(a, b);
   assert.match(a, /^---\nname: musteri-hizmetleri-kurulum\ndescription: /);
 });
+
+test('Meta: uygulamada başka sisteme giden webhook varsa üzerine yazılmaz', async () => {
+  const { createGraph } = await import('../src/meta/graph.mjs');
+  const posts = [];
+  let existing = [{ object: 'page', callback_url: 'https://hermes.example.com/meta', fields: [{ name: 'feed' }] }];
+  const fetchImpl = async (url, init) => {
+    if (init.method === 'POST') { posts.push(String(url)); return new Response('{"success":true}'); }
+    return new Response(JSON.stringify({ data: existing }));
+  };
+  const g = createGraph(makeConfig(), { fetchImpl });
+  await assert.rejects(g.registerWebhook({ callbackUrl: 'https://a.trycloudflare.com/webhook', verifyToken: 'v', objects: ['page'] }), /başka bir sisteme gidiyor \(page → hermes\.example\.com\)/);
+  assert.equal(posts.length, 0);
+  existing = [{ object: 'page', callback_url: 'https://eski.trycloudflare.com/webhook' }];
+  await g.registerWebhook({ callbackUrl: 'https://a.trycloudflare.com/webhook', verifyToken: 'v', objects: ['page'], ownUrl: (u) => u.includes('trycloudflare') });
+  assert.equal(posts.length, 1);
+});

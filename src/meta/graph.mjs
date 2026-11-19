@@ -74,9 +74,24 @@ export function createGraph(config, { fetchImpl = fetch } = {}) {
       return res?.instagram_business_account?.id || null;
     },
 
+    // Uygulamadaki mevcut webhook abonelikleri: [{ object, callback_url, active, fields }]
+    async subscriptions() {
+      const res = await call(`${env.META_APP_ID}/subscriptions?access_token=${encodeURIComponent(`${env.META_APP_ID}|${env.META_APP_SECRET}`)}`, { token: null });
+      return res?.data || [];
+    },
+
     // Uygulamanın webhook adresini kaydeder. Meta hemen bu adrese doğrulama isteği gönderir.
-    async registerWebhook({ callbackUrl, verifyToken, objects }) {
+    // Webhook adresi Meta'da UYGULAMA başınadır (işletme ya da sayfa başına değil). Uygulamada
+    // başka bir sisteme giden adres varsa üzerine yazılmaz: o sistemi bozmamak için durulur.
+    async registerWebhook({ callbackUrl, verifyToken, objects, ownUrl = () => false, override = false }) {
       const appToken = `${env.META_APP_ID}|${env.META_APP_SECRET}`;
+      if (!override) {
+        const foreign = (await this.subscriptions()).filter((s) => objects.includes(s.object) && s.callback_url && s.callback_url !== callbackUrl && !ownUrl(s.callback_url));
+        if (foreign.length) {
+          throw new SendError(`Bu Meta uygulamasının webhook'u başka bir sisteme gidiyor (${foreign.map((s) => `${s.object} → ${new URL(s.callback_url).host}`).join(', ')}). `
+            + 'Üzerine yazılırsa o sistem mesaj alamaz. Ayrı bir uygulama kullanın ya da bilerek devralmak için config.json → server.overrideWebhook: true yapın.');
+        }
+      }
       for (const object of objects) {
         await call(`${env.META_APP_ID}/subscriptions`, {
           method: 'POST',

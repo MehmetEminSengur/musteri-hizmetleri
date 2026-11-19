@@ -108,6 +108,12 @@ async function kontrol() {
       }
     } catch (err) { bad(`Facebook sayfası: ${err.message}`, 'docs/meta-kurulum.md → Adım 4 (sistem kullanıcısına sayfa atanmalı)'); }
   }
+  try {
+    const subs = (await graph.subscriptions()).filter((x) => ['whatsapp_business_account', 'instagram', 'page'].includes(x.object) && x.callback_url);
+    const foreign = subs.filter((x) => !/\.trycloudflare\.com\//.test(x.callback_url) && !(config.server.publicUrl && x.callback_url.startsWith(config.server.publicUrl)));
+    if (foreign.length && config.server.overrideWebhook !== true) bad(`Uygulamanın webhook'u başka bir sisteme gidiyor: ${foreign.map((x) => `${x.object} → ${new URL(x.callback_url).host}`).join(', ')}`, 'calistir bu adresin üzerine yazmaz. Ayrı bir Meta uygulaması kullanın ya da bilerek devralmak için config.json → server.overrideWebhook: true');
+    else ok('Uygulamanın webhook ayarı bu sisteme bırakılabilir');
+  } catch (err) { bad(`Uygulamanın webhook ayarları okunamadı: ${err.message}`, 'META_APP_ID ve META_APP_SECRET doğru mu?'); }
   if (!config.server.publicUrl) {
     (await probeEngine('cloudflared')) ? ok('cloudflared kurulu (mesajlar bu tünelle gelir)') : bad('cloudflared kurulu değil', 'macOS: brew install cloudflared · Windows: winget install --id Cloudflare.cloudflared');
   }
@@ -163,7 +169,9 @@ async function calistir() {
 
   const objects = [config.channels.whatsapp && 'whatsapp_business_account', config.channels.instagram && 'instagram', config.channels.messenger && 'page'].filter(Boolean);
   async function connect(publicBase) {
-    await graph.registerWebhook({ callbackUrl: `${publicBase}/webhook`, verifyToken, objects });
+    // Önceki çalışmaların tünel adresleri bizimdir; üzerine yazılabilir.
+    const ownUrl = (u) => /\.trycloudflare\.com\//.test(u) || (config.server.publicUrl && u.startsWith(config.server.publicUrl));
+    await graph.registerWebhook({ callbackUrl: `${publicBase}/webhook`, verifyToken, objects, ownUrl, override: config.server.overrideWebhook === true });
     await graph.subscribeAssets({ whatsapp: config.channels.whatsapp, page: config.channels.instagram || config.channels.messenger });
     log('webhook_kayitli', { adres: publicBase });
   }

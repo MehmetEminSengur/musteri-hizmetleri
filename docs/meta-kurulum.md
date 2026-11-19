@@ -22,6 +22,11 @@ yapay zekâ sohbetiyle paylaşmayın; `.env` dosyasına kendiniz yazın.
 3. Uygulama → **Ayarlar → Temel**: **Uygulama Kimliği** → `.env` → `META_APP_ID`,
    **Uygulama Gizli Anahtarı** (Göster'e basın) → `META_APP_SECRET`.
 
+**Var olan bir uygulamayı kullanacaksanız** (ör. içerik paylaşımı için açılmış bir uygulama): Meta'da
+webhook adresi uygulama başınadır, işletme ya da sayfa başına değil. Uygulamaya bağlı bütün sayfaların
+mesaj bildirimleri tek adrese gider. `kontrol` komutu uygulamada başka bir sisteme giden webhook olup
+olmadığını gösterir; varsa `calistir` o adresin üzerine yazmaz. Bu durumda ayrı bir uygulama açın.
+
 ## Adım 2: WhatsApp numarası
 
 1. Uygulama → **WhatsApp → API Kurulumu**.
