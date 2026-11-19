@@ -18,11 +18,14 @@ import { installAutostart, removeAutostart } from '../src/autostart.mjs';
 import { ingest } from '../src/inbox.mjs';
 import { generateDraft } from '../src/service.mjs';
 import { sampleCommerce } from '../src/sample.mjs';
+import { setEnvValue, readHidden, ENV_KEYS } from '../src/env-file.mjs';
 
 const HELP = `Kullanım: node bin/musteri.mjs <komut>
 
 Kurulum
   kontrol                   Ayarları, yapay zekâ motorunu, Shopify ve Meta bağlantısını sınar
+  anahtar <AD>              .env dosyasına bir anahtar yazar; değer ekranda görünmeden yapıştırılır
+                            (ör. anahtar META_APP_SECRET)
   shopify-baglan            Shopify'a bağlanır: tarayıcıda tek onay (bir kez)
   deneme "mesaj" [--ornek]  Bir müşteri mesajına cevap taslağı üretir; kimseye bir şey göndermez.
                             --ornek: mağazaya bağlanmadan örnek ürünle dener
@@ -239,9 +242,19 @@ function shopifyBaglan() {
   console.log('Shopify bağlantısı kuruldu. Kontrol: node bin/musteri.mjs kontrol');
 }
 
+async function anahtar() {
+  const key = rest[0];
+  if (!key) throw new Error(`hangi anahtar? ör. node bin/musteri.mjs anahtar META_APP_SECRET\nGeçerli olanlar: ${ENV_KEYS.join(', ')}`);
+  const config = loadConfig();
+  const value = await readHidden(`${key} değerini yapıştırıp Enter'a basın (ekranda görünmez): `);
+  if (!value) throw new Error('boş değer girildi, hiçbir şey yazılmadı');
+  setEnvValue(config.root, key, value);
+  console.log(`✓ ${key} .env dosyasına yazıldı (${value.length} karakter).`);
+}
+
 const commands = {
   yardim: () => console.log(HELP), help: () => console.log(HELP), '--help': () => console.log(HELP),
-  kontrol, deneme, calistir, durum, 'shopify-baglan': shopifyBaglan,
+  kontrol, deneme, calistir, durum, anahtar, 'shopify-baglan': shopifyBaglan,
   'otomatik-baslat-kur': () => console.log(installAutostart({ dryRun: flag('--goster') })),
   'otomatik-baslat-kaldir': () => console.log(removeAutostart()),
 };

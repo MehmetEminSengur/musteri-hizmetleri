@@ -63,8 +63,10 @@ site adresi nedir? Marka adınız nasıl yazılsın?"
   adımı kullanıcıya anlat, ekranda ne gördüğünü sor, sonraki adıma öyle geç. Adımlar:
   Meta uygulaması → WhatsApp numarası → Instagram'ın sayfaya bağlanması ve mesaj izni →
   sistem kullanıcısı ve erişim anahtarı → `.env` doldurma.
-- Kullanıcı değerleri `.env` dosyasına **kendisi** yazar. Sen yalnız hangi satıra ne yazılacağını
-  söylersin.
+- Kullanıcı değerleri `.env` dosyasına **kendisi** yazar. En kolayı: kullanıcının terminalinde
+  `node bin/musteri.mjs anahtar <AD>` çalıştır (ör. `anahtar META_APP_SECRET`); kullanıcı değeri
+  yapıştırıp Enter'a basar, değer ekranda görünmez ve sohbete düşmez. Gizli olmayan kimlikleri
+  (uygulama kimliği, sayfa kimliği) kullanıcı sohbette söylerse aynı komutla ya da `.env`'ye sen yazabilirsin.
 - WhatsApp numarası şu an telefondaki WhatsApp Business uygulamasında kullanılıyorsa
   `docs/meta-kurulum.md` → "WhatsApp numarası" bölümündeki seçenekleri anlat, kararı kullanıcı versin.
 

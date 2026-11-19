@@ -69,3 +69,16 @@ test('Messenger sayfa nesnesiyle gelir', () => {
   const [m] = parseWebhook(igPayload({ object: 'page', account: PAGE_ID }));
   assert.equal(m.channel, 'messenger');
 });
+
+test('.env: anahtar satırı değiştirilir ya da eklenir, bilinmeyen anahtar reddedilir', async () => {
+  const { mkdtempSync, writeFileSync, readFileSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { setEnvValue } = await import('../src/env-file.mjs');
+  const dir = mkdtempSync(`${tmpdir()}/env-`);
+  writeFileSync(`${dir}/.env`, '# yorum\nMETA_APP_ID=1\nMETA_APP_SECRET=\n');
+  setEnvValue(dir, 'META_APP_SECRET', 'abc');
+  setEnvValue(dir, 'META_PAGE_ID', '333');
+  assert.equal(readFileSync(`${dir}/.env`, 'utf8'), '# yorum\nMETA_APP_ID=1\nMETA_APP_SECRET=abc\nMETA_PAGE_ID=333\n');
+  assert.throws(() => setEnvValue(dir, 'PATH', 'x'), /bilinmeyen anahtar/);
+  assert.throws(() => setEnvValue(dir, 'META_PAGE_ID', 'a\nb'), /tek satır/);
+});
